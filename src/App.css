@@ -824,6 +824,7 @@
   background-color: #fee;
   border: 2px solid #fcc;
   color: #c33;
+  white-space: pre-line;
 }
 
 .alert-success {

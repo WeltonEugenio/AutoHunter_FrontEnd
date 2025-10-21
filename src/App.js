@@ -177,7 +177,13 @@ function App() {
         } else if (statusCode === 400) {
           // Verificar se é erro de URL interna
           if (errorMessage && errorMessage.includes('URL interna detectada')) {
-            setError(`❌ ${errorMessage}. O backend não consegue acessar esta rede interna.`);
+            setError(`❌ ${errorMessage}. 
+            
+            💡 <strong>Possíveis soluções:</strong>
+            • Use uma URL pública acessível pela internet
+            • Configure VPN no servidor backend
+            • Use um proxy/túnel para acessar a rede interna
+            • Considere mover os arquivos para um servidor público`);
         } else {
             setError(`Erro 400 - Requisição inválida. Verifique os dados enviados: ${errorMessage || 'Dados malformados'}`);
           }
