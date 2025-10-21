@@ -1,0 +1,3 @@
+[33mbada91d[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Suporte para URLs internas - Permite acesso a IPs privados e credenciais
+[33m4f24e4f[m Preparar projeto para deploy no Netlify - Configurações CORS, validação de URLs e build otimizado
+[33mff928a6[m first commit
