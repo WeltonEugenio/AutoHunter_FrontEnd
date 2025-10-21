@@ -499,12 +499,6 @@ function App() {
                 </div>
               )}
             </div>
-            <div className="help-text">
-              <small>
-                💡 <strong>Dica:</strong> URLs com IPs internos são suportadas. O backend tentará acessar o servidor especificado.
-                Para URLs internas, certifique-se de que o backend tenha acesso à rede de destino.
-              </small>
-            </div>
           </div>
 
           <div className="input-group">
