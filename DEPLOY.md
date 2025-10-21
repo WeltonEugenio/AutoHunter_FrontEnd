@@ -45,3 +45,13 @@ netlify deploy --prod --dir=build
 
 ## Variáveis de Ambiente (se necessário):
 No painel do Netlify → Site settings → Environment variables
+
+## URLs Internas:
+✅ **Suportadas**: O frontend agora aceita URLs com IPs internos (10.x.x.x, 172.16-31.x.x, 192.168.x.x)
+✅ **Credenciais**: URLs com usuário/senha são aceitas
+⚠️ **Limitação**: O backend precisa ter acesso à rede interna de destino
+
+### Exemplo de URL suportada:
+```
+http://softplan_read:34a9lnqN3KTd@10.47.60.92:9999/10.47.60.143/Servidores/PG5/LOG/SPLOGMETODOSERVIDOR_2025_10_19/
+```

@@ -101,15 +101,13 @@ function App() {
     try {
       const urlObj = new URL(url);
       
-      // Verificar se é um IP interno (pode causar problemas)
+      // Verificar se é um IP interno (apenas aviso, não bloqueia)
       if (urlObj.hostname.match(/^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.)/)) {
         console.warn('URL contém IP interno:', urlObj.hostname);
-        setError('❌ URL interna detectada. O servidor AWS não consegue acessar redes privadas (172.17.x.x, 192.168.x.x, 10.x.x.x). Use uma URL pública ou configure VPN.');
-        setUrlError(true);
-        return;
+        // Não bloqueia mais - apenas aviso
       }
       
-      // Verificar se tem credenciais (pode causar problemas de parsing)
+      // Verificar se tem credenciais (apenas aviso)
       if (urlObj.username || urlObj.password) {
         console.warn('URL contém credenciais:', urlObj.username ? 'usuário presente' : '', urlObj.password ? 'senha presente' : '');
       }
@@ -179,8 +177,8 @@ function App() {
         } else if (statusCode === 400) {
           // Verificar se é erro de URL interna
           if (errorMessage && errorMessage.includes('URL interna detectada')) {
-            setError(`❌ ${errorMessage}`);
-          } else {
+            setError(`❌ ${errorMessage}. O backend não consegue acessar esta rede interna.`);
+        } else {
             setError(`Erro 400 - Requisição inválida. Verifique os dados enviados: ${errorMessage || 'Dados malformados'}`);
           }
         } else if (statusCode === 422) {
@@ -366,10 +364,10 @@ function App() {
       console.log('Dados:', { url, save_directory: saveDirectory, selected_files: selectedFilesUrls, file_type: fileType });
       
       const response = await axios.post(`${API_URL}/download-stream`, {
-        url: url,
-        save_directory: saveDirectory,
-        selected_files: selectedFilesUrls,
-        file_type: fileType
+          url: url,
+          save_directory: saveDirectory,
+          selected_files: selectedFilesUrls,
+          file_type: fileType
       }, {
         headers: {
           'Content-Type': 'application/json',
@@ -387,8 +385,8 @@ function App() {
         setResult(response.data.message || 'Download iniciado com sucesso!');
         
         // Simular progresso de download
-        setDownloadStats(prev => ({
-          ...prev,
+                  setDownloadStats(prev => ({
+                    ...prev,
           totalFiles: selectedFilesUrls.length,
           progress: 100,
           currentFile: 'Download concluído!'
@@ -399,18 +397,18 @@ function App() {
         selectedFilesUrls.forEach(fileUrl => {
           const filename = fileUrl.split('/').pop() || 'arquivo';
           completedFiles[filename] = {
-            progress: 100,
+                      progress: 100,
             downloaded: 0,
             total: 0,
-            status: 'completed'
+                      status: 'completed'
           };
         });
         setDownloadProgress(completedFiles);
         
         // Fechar modal após 3 segundos
         setTimeout(() => {
-          setDownloading(false);
-          setShowDownloadModal(false);
+                  setDownloading(false);
+                  setShowDownloadModal(false);
         }, 3000);
         
       } else {
@@ -503,8 +501,8 @@ function App() {
             </div>
             <div className="help-text">
               <small>
-                💡 <strong>Dica:</strong> URLs com IPs internos (172.17.x.x, 192.168.x.x, 10.x.x.x) não funcionam. 
-                Use URLs públicas ou configure VPN para acessar servidores internos.
+                💡 <strong>Dica:</strong> URLs com IPs internos são suportadas. O backend tentará acessar o servidor especificado.
+                Para URLs internas, certifique-se de que o backend tenha acesso à rede de destino.
               </small>
             </div>
           </div>
