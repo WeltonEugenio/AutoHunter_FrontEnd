@@ -640,6 +640,26 @@ function App() {
           </div>
         )}
 
+        {/* Mensagem quando não encontrar arquivos */}
+        {files.length === 0 && !scanning && !downloading && !result && !error && (
+          <div className="results-container">
+            <div className="alert alert-info">
+              <strong>📋 Nenhum arquivo encontrado</strong>
+              <p>
+                {fileType === 'zip' && 'Nenhum arquivo comprimido (.zip, .7z, .rar) foi encontrado na URL especificada.'}
+                {fileType === 'images' && 'Nenhuma imagem (.png, .jpeg, .jpg, .gif, .bmp) foi encontrada na URL especificada.'}
+                {fileType === 'pdf' && 'Nenhum documento PDF (.pdf) foi encontrado na URL especificada.'}
+              </p>
+              <p><strong>Dicas:</strong></p>
+              <ul>
+                <li>Verifique se a URL está correta e acessível</li>
+                <li>Tente um tipo de arquivo diferente</li>
+                <li>Certifique-se de que há arquivos do tipo selecionado no diretório</li>
+              </ul>
+            </div>
+          </div>
+        )}
+
         {files.length > 0 && !scanning && !downloading && !result && (
           <div className="results-container">
             <div className="files-header">
