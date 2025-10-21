@@ -112,6 +112,34 @@ function App() {
         console.warn('URL contém credenciais:', urlObj.username ? 'usuário presente' : '', urlObj.password ? 'senha presente' : '');
       }
       
+      // Verificar se a URL está muito longa ou tem caracteres problemáticos
+      if (url.length > 2048) {
+        setError('URL muito longa. Tente uma URL mais curta.');
+        setUrlError(true);
+        return;
+      }
+      
+      // Verificar caracteres especiais problemáticos
+      if (url.includes(' ') || url.includes('\n') || url.includes('\r') || url.includes('\t')) {
+        setError('URL contém caracteres inválidos (espaços, quebras de linha).');
+        setUrlError(true);
+        return;
+      }
+      
+      // Verificar se a URL não contém caracteres de controle
+      if (/[\x00-\x1F\x7F]/.test(url)) {
+        setError('URL contém caracteres de controle inválidos.');
+        setUrlError(true);
+        return;
+      }
+      
+      // Verificar se a URL não está malformada (múltiplos protocolos, etc.)
+      if (url.match(/^https?:\/\/https?:\/\//) || url.match(/^http:\/\/http:\/\//)) {
+        setError('URL malformada: múltiplos protocolos detectados.');
+        setUrlError(true);
+        return;
+      }
+      
     } catch (e) {
       setError('URL inválida. Verifique o formato da URL.');
       setUrlError(true);
@@ -128,13 +156,38 @@ function App() {
 
     try {
       console.log('Enviando requisição para:', `${API_URL}/scan`);
-      console.log('Dados:', { url, save_directory: saveDirectory || 'C:/downloads', file_type: fileType });
+      console.log('Dados originais:', { url, save_directory: saveDirectory || 'C:/downloads', file_type: fileType });
+      console.log('URL original:', JSON.stringify(url));
+      console.log('URL após trim:', JSON.stringify(url.trim()));
       
       const requestData = {
         url: url.trim(),
         save_directory: (saveDirectory || 'C:/downloads').trim(),
         file_type: fileType
       };
+      
+      // Validar dados antes de enviar
+      if (!requestData.url || !requestData.file_type) {
+        throw new Error('Dados obrigatórios não fornecidos');
+      }
+      
+      // Validar formato da URL após trim
+      if (requestData.url.length === 0) {
+        throw new Error('URL não pode estar vazia');
+      }
+      
+      // Validar se o tipo de arquivo é válido
+      const validFileTypes = ['zip', 'images', 'pdf'];
+      if (!validFileTypes.includes(requestData.file_type)) {
+        throw new Error(`Tipo de arquivo inválido: ${requestData.file_type}`);
+      }
+      
+      // Validar se o diretório não está vazio
+      if (!requestData.save_directory || requestData.save_directory.trim().length === 0) {
+        requestData.save_directory = 'C:/downloads'; // Valor padrão
+      }
+      
+      console.log('Dados validados:', requestData);
       
       const response = await axios.post(`${API_URL}/scan`, requestData, {
         timeout: 60000, // 60 segundos de timeout
@@ -178,8 +231,12 @@ function App() {
           // Verificar se é erro de URL interna
           if (errorMessage && errorMessage.includes('URL interna detectada')) {
             setError(`❌ ${errorMessage}. O backend não consegue acessar esta rede interna.`);
-        } else {
-            setError(`Erro 400 - Requisição inválida. Verifique os dados enviados: ${errorMessage || 'Dados malformados'}`);
+          } else if (errorMessage && errorMessage.includes('malformados') || errorMessage && errorMessage.includes('malformados')) {
+            setError(`❌ Erro 400 - Dados malformados: ${errorMessage}. Verifique se a URL está correta e não contém caracteres especiais.`);
+          } else if (errorMessage && errorMessage.includes('Invalid URL') || errorMessage && errorMessage.includes('URL inválida')) {
+            setError(`❌ URL inválida: ${errorMessage}. Verifique o formato da URL.`);
+          } else {
+            setError(`❌ Erro 400 - Requisição inválida: ${errorMessage || 'Dados malformados'}. Verifique a URL e os parâmetros enviados.`);
           }
         } else if (statusCode === 422) {
           setError(`Erro 422 - Dados inválidos: ${errorMessage || 'Parâmetros incorretos'}`);
