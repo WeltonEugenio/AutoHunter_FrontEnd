@@ -112,6 +112,20 @@ function App() {
         console.warn('URL contém credenciais:', urlObj.username ? 'usuário presente' : '', urlObj.password ? 'senha presente' : '');
       }
       
+      // Verificar se a URL está muito longa ou tem caracteres problemáticos
+      if (url.length > 2048) {
+        setError('URL muito longa. Tente uma URL mais curta.');
+        setUrlError(true);
+        return;
+      }
+      
+      // Verificar caracteres especiais problemáticos
+      if (url.includes(' ') || url.includes('\n') || url.includes('\r') || url.includes('\t')) {
+        setError('URL contém caracteres inválidos (espaços, quebras de linha).');
+        setUrlError(true);
+        return;
+      }
+      
     } catch (e) {
       setError('URL inválida. Verifique o formato da URL.');
       setUrlError(true);
@@ -135,6 +149,13 @@ function App() {
         save_directory: (saveDirectory || 'C:/downloads').trim(),
         file_type: fileType
       };
+      
+      // Validar dados antes de enviar
+      if (!requestData.url || !requestData.file_type) {
+        throw new Error('Dados obrigatórios não fornecidos');
+      }
+      
+      console.log('Dados validados:', requestData);
       
       const response = await axios.post(`${API_URL}/scan`, requestData, {
         timeout: 60000, // 60 segundos de timeout
@@ -178,8 +199,10 @@ function App() {
           // Verificar se é erro de URL interna
           if (errorMessage && errorMessage.includes('URL interna detectada')) {
             setError(`❌ ${errorMessage}. O backend não consegue acessar esta rede interna.`);
-        } else {
-            setError(`Erro 400 - Requisição inválida. Verifique os dados enviados: ${errorMessage || 'Dados malformados'}`);
+          } else if (errorMessage && errorMessage.includes('malformados')) {
+            setError(`❌ Erro 400 - Dados malformados: ${errorMessage}. Verifique a URL e tente novamente.`);
+          } else {
+            setError(`Erro 400 - Requisição inválida. Detalhes: ${errorMessage || 'Dados malformados'}. Verifique a URL e os parâmetros.`);
           }
         } else if (statusCode === 422) {
           setError(`Erro 422 - Dados inválidos: ${errorMessage || 'Parâmetros incorretos'}`);
