@@ -833,6 +833,37 @@
   color: #3c3;
 }
 
+.alert-info {
+  background: linear-gradient(135deg, #e8f4fd 0%, #f0f8ff 100%);
+  border: 2px solid #b3d9ff;
+  color: #2c5282;
+  padding: 20px;
+  border-radius: 12px;
+  margin: 20px 0;
+}
+
+.alert-info strong {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 1.1rem;
+  color: #2c5282;
+}
+
+.alert-info p {
+  margin: 10px 0;
+  line-height: 1.5;
+}
+
+.alert-info ul {
+  margin: 15px 0;
+  padding-left: 20px;
+}
+
+.alert-info li {
+  margin: 8px 0;
+  line-height: 1.4;
+}
+
 .alert strong {
   display: block;
   margin-bottom: 5px;

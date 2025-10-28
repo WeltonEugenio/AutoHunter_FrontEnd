@@ -112,6 +112,34 @@ function App() {
         console.warn('URL contém credenciais:', urlObj.username ? 'usuário presente' : '', urlObj.password ? 'senha presente' : '');
       }
       
+      // Verificar se a URL está muito longa ou tem caracteres problemáticos
+      if (url.length > 2048) {
+        setError('URL muito longa. Tente uma URL mais curta.');
+        setUrlError(true);
+        return;
+      }
+      
+      // Verificar caracteres especiais problemáticos
+      if (url.includes(' ') || url.includes('\n') || url.includes('\r') || url.includes('\t')) {
+        setError('URL contém caracteres inválidos (espaços, quebras de linha).');
+        setUrlError(true);
+        return;
+      }
+      
+      // Verificar se a URL não contém caracteres de controle
+      if (/[\x00-\x1F\x7F]/.test(url)) {
+        setError('URL contém caracteres de controle inválidos.');
+        setUrlError(true);
+        return;
+      }
+      
+      // Verificar se a URL não está malformada (múltiplos protocolos, etc.)
+      if (url.match(/^https?:\/\/https?:\/\//) || url.match(/^http:\/\/http:\/\//)) {
+        setError('URL malformada: múltiplos protocolos detectados.');
+        setUrlError(true);
+        return;
+      }
+      
     } catch (e) {
       setError('URL inválida. Verifique o formato da URL.');
       setUrlError(true);
@@ -128,13 +156,38 @@ function App() {
 
     try {
       console.log('Enviando requisição para:', `${API_URL}/scan`);
-      console.log('Dados:', { url, save_directory: saveDirectory || 'C:/downloads', file_type: fileType });
+      console.log('Dados originais:', { url, save_directory: saveDirectory || 'C:/downloads', file_type: fileType });
+      console.log('URL original:', JSON.stringify(url));
+      console.log('URL após trim:', JSON.stringify(url.trim()));
       
       const requestData = {
         url: url.trim(),
         save_directory: (saveDirectory || 'C:/downloads').trim(),
         file_type: fileType
       };
+      
+      // Validar dados antes de enviar
+      if (!requestData.url || !requestData.file_type) {
+        throw new Error('Dados obrigatórios não fornecidos');
+      }
+      
+      // Validar formato da URL após trim
+      if (requestData.url.length === 0) {
+        throw new Error('URL não pode estar vazia');
+      }
+      
+      // Validar se o tipo de arquivo é válido
+      const validFileTypes = ['zip', 'images', 'pdf'];
+      if (!validFileTypes.includes(requestData.file_type)) {
+        throw new Error(`Tipo de arquivo inválido: ${requestData.file_type}`);
+      }
+      
+      // Validar se o diretório não está vazio
+      if (!requestData.save_directory || requestData.save_directory.trim().length === 0) {
+        requestData.save_directory = 'C:/downloads'; // Valor padrão
+      }
+      
+      console.log('Dados validados:', requestData);
       
       const response = await axios.post(`${API_URL}/scan`, requestData, {
         timeout: 60000, // 60 segundos de timeout
@@ -177,13 +230,7 @@ function App() {
         } else if (statusCode === 400) {
           // Verificar se é erro de URL interna
           if (errorMessage && errorMessage.includes('URL interna detectada')) {
-            setError(`❌ ${errorMessage}. 
-            
-            💡 <strong>Possíveis soluções:</strong>
-            • Use uma URL pública acessível pela internet
-            • Configure VPN no servidor backend
-            • Use um proxy/túnel para acessar a rede interna
-            • Considere mover os arquivos para um servidor público`);
+            setError(`❌ ${errorMessage}. O backend não consegue acessar esta rede interna.`);
         } else {
             setError(`Erro 400 - Requisição inválida. Verifique os dados enviados: ${errorMessage || 'Dados malformados'}`);
           }
@@ -505,12 +552,6 @@ function App() {
                 </div>
               )}
             </div>
-            <div className="help-text">
-              <small>
-                💡 <strong>Dica:</strong> URLs com IPs internos são suportadas. O backend tentará acessar o servidor especificado.
-                Para URLs internas, certifique-se de que o backend tenha acesso à rede de destino.
-              </small>
-            </div>
           </div>
 
           <div className="input-group">
@@ -591,6 +632,26 @@ function App() {
                 {result.downloaded} arquivo(s) baixado(s) com sucesso
                 {result.failed > 0 && `, ${result.failed} falhou(aram)`}
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* Mensagem quando não encontrar arquivos */}
+        {files.length === 0 && !scanning && !downloading && !result && !error && (
+          <div className="results-container">
+            <div className="alert alert-info">
+              <strong>📋 Nenhum arquivo encontrado</strong>
+              <p>
+                {fileType === 'zip' && 'Nenhum arquivo comprimido (.zip, .7z, .rar) foi encontrado na URL especificada.'}
+                {fileType === 'images' && 'Nenhuma imagem (.png, .jpeg, .jpg, .gif, .bmp) foi encontrada na URL especificada.'}
+                {fileType === 'pdf' && 'Nenhum documento PDF (.pdf) foi encontrado na URL especificada.'}
+              </p>
+              <p><strong>Dicas:</strong></p>
+              <ul>
+                <li>Verifique se a URL está correta e acessível</li>
+                <li>Tente um tipo de arquivo diferente</li>
+                <li>Certifique-se de que há arquivos do tipo selecionado no diretório</li>
+              </ul>
             </div>
           </div>
         )}
