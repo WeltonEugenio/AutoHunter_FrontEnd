@@ -6,7 +6,6 @@ const API_URL = 'https://auto-hunter-back-end.vercel.app';
 
 function App() {
   const [url, setUrl] = useState('');
-  const [saveDirectory, setSaveDirectory] = useState('');
   const [fileType, setFileType] = useState('zip'); // zip, images, pdf
   const [files, setFiles] = useState([]);
   const [scanning, setScanning] = useState(false);
@@ -14,7 +13,6 @@ function App() {
   const [error, setError] = useState('');
   const [result, setResult] = useState(null);
   const [urlError, setUrlError] = useState(false);
-  const [directoryError, setDirectoryError] = useState(false);
   // eslint-disable-next-line no-unused-vars
   const [qrCodeImage, setQrCodeImage] = useState(null);
   // eslint-disable-next-line no-unused-vars
@@ -51,6 +49,34 @@ function App() {
   const [showContributionModal, setShowContributionModal] = useState(false);
   
 
+  // Função para detectar o SO e retornar a pasta de downloads padrão
+  const getDefaultDownloadsFolder = () => {
+    const platform = navigator.platform || navigator.userAgent;
+    
+    // Windows
+    if (platform.includes('Win') || platform.includes('Windows')) {
+      return 'C:\\Users\\Downloads';
+    }
+    
+    // Mac
+    if (platform.includes('Mac') || platform.includes('iPhone') || platform.includes('iPad')) {
+      return '/Users/Downloads';
+    }
+    
+    // Linux
+    if (platform.includes('Linux')) {
+      return '/home/Downloads';
+    }
+    
+    // Android
+    if (platform.includes('Android')) {
+      return '/storage/emulated/0/Download';
+    }
+    
+    // Default (caso não detecte, usa Windows)
+    return 'C:\\Users\\Downloads';
+  };
+
   const clearMessages = () => {
     if (result) {
       setResult(null);
@@ -59,7 +85,6 @@ function App() {
       setError('');
     }
     setUrlError(false);
-    setDirectoryError(false);
   };
 
   const handleContribution = () => {
@@ -127,6 +152,7 @@ function App() {
       }
       
       // Verificar se a URL não contém caracteres de controle
+      // eslint-disable-next-line no-control-regex
       if (/[\x00-\x1F\x7F]/.test(url)) {
         setError('URL contém caracteres de controle inválidos.');
         setUrlError(true);
@@ -155,15 +181,18 @@ function App() {
     setAllSelected(true);
 
     try {
+      const defaultDirectory = getDefaultDownloadsFolder();
+      
       console.log('Enviando requisição para:', `${API_URL}/scan`);
-      console.log('Dados originais:', { url, save_directory: saveDirectory || 'C:/downloads', file_type: fileType });
+      console.log('Dados originais:', { url, save_directory: defaultDirectory, file_type: fileType });
       console.log('URL original:', JSON.stringify(url));
       console.log('URL após trim:', JSON.stringify(url.trim()));
       
       const requestData = {
         url: url.trim(),
-        save_directory: (saveDirectory || 'C:/downloads').trim(),
-        file_type: fileType
+        save_directory: defaultDirectory,
+        file_type: fileType,
+        include_src: true  // Incluir arquivos com atributo src além de href
       };
       
       // Validar dados antes de enviar
@@ -180,11 +209,6 @@ function App() {
       const validFileTypes = ['zip', 'images', 'pdf'];
       if (!validFileTypes.includes(requestData.file_type)) {
         throw new Error(`Tipo de arquivo inválido: ${requestData.file_type}`);
-      }
-      
-      // Validar se o diretório não está vazio
-      if (!requestData.save_directory || requestData.save_directory.trim().length === 0) {
-        requestData.save_directory = 'C:/downloads'; // Valor padrão
       }
       
       console.log('Dados validados:', requestData);
@@ -339,7 +363,6 @@ function App() {
     
     // Limpar todos os campos
     setUrl('');
-    setSaveDirectory('');
     setFiles([]);
     setSelectedFiles([]);
     setAllSelected(true);
@@ -373,12 +396,6 @@ function App() {
       return;
     }
 
-    if (!saveDirectory || saveDirectory.trim() === '') {
-      setError('Informe o diretório');
-      setDirectoryError(true);
-      return;
-    }
-
     if (selectedFiles.length === 0) {
       setError('Por favor, selecione pelo menos um arquivo para download');
       return;
@@ -405,6 +422,7 @@ function App() {
 
     try {
       const selectedFilesUrls = getSelectedFiles();
+      const defaultDirectory = getDefaultDownloadsFolder();
       
       if (selectedFilesUrls.length === 0) {
         setError('Nenhum arquivo selecionado para download');
@@ -414,32 +432,59 @@ function App() {
       }
       
       console.log('Enviando requisição de download para:', `${API_URL}/download-stream`);
-      console.log('Dados:', { url, save_directory: saveDirectory, selected_files: selectedFilesUrls, file_type: fileType });
+      console.log('Dados:', { url, save_directory: defaultDirectory, selected_files: selectedFilesUrls, file_type: fileType });
       
       const response = await axios.post(`${API_URL}/download-stream`, {
           url: url,
-          save_directory: saveDirectory,
+          save_directory: defaultDirectory,
           selected_files: selectedFilesUrls,
-          file_type: fileType
+          file_type: fileType,
+          include_src: true  // Incluir arquivos com atributo src além de href
       }, {
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': '*/*'  // Aceitar qualquer tipo de resposta
         },
+        responseType: 'blob',  // Receber resposta como blob (binário)
         timeout: 300000, // 5 minutos de timeout para downloads
         signal: controller.signal
       });
 
-      console.log('Resposta do download recebida:', response.data);
+      console.log('Resposta do download recebida (tipo):', response.headers['content-type']);
 
-      // Processar resposta do download
-      if (response.data.success) {
-        // Download iniciado com sucesso
-        setResult(response.data.message || 'Download iniciado com sucesso!');
+      const contentType = response.headers['content-type'];
+      
+      // Verificar se a resposta é um arquivo binário ou JSON
+      if (contentType && (contentType.includes('application/pdf') || 
+                          contentType.includes('application/zip') || 
+                          contentType.includes('application/x-zip-compressed') ||
+                          contentType.includes('image/') ||
+                          response.data instanceof Blob)) {
+        
+        // Resposta é um arquivo binário - fazer download no navegador
+        const filename = selectedFilesUrls.length === 1 
+          ? selectedFilesUrls[0].split('/').pop() || 'download'
+          : `download_${new Date().getTime()}.${fileType === 'pdf' ? 'pdf' : 'zip'}`;
+        
+        // Criar URL temporária para o blob
+        const blobUrl = window.URL.createObjectURL(response.data);
+        
+        // Criar link de download
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        
+        // Limpar
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+        
+        setResult('✅ Download concluído com sucesso!');
         
         // Simular progresso de download
-                  setDownloadStats(prev => ({
-                    ...prev,
+        setDownloadStats(prev => ({
+          ...prev,
           totalFiles: selectedFilesUrls.length,
           progress: 100,
           currentFile: 'Download concluído!'
@@ -450,22 +495,63 @@ function App() {
         selectedFilesUrls.forEach(fileUrl => {
           const filename = fileUrl.split('/').pop() || 'arquivo';
           completedFiles[filename] = {
-                      progress: 100,
+            progress: 100,
             downloaded: 0,
             total: 0,
-                      status: 'completed'
+            status: 'completed'
           };
         });
         setDownloadProgress(completedFiles);
         
         // Fechar modal após 3 segundos
         setTimeout(() => {
-                  setDownloading(false);
-                  setShowDownloadModal(false);
+          setDownloading(false);
+          setShowDownloadModal(false);
         }, 3000);
         
       } else {
-        throw new Error(response.data.error || 'Erro no download');
+        // Resposta é JSON - tentar converter blob para JSON se necessário
+        let responseData = response.data;
+        if (responseData instanceof Blob) {
+          try {
+            const text = await responseData.text();
+            responseData = JSON.parse(text);
+          } catch (e) {
+            console.error('Erro ao converter blob para JSON:', e);
+            throw new Error('Formato de resposta inválido do servidor');
+          }
+        }
+        
+        // Processar resposta do download (formato antigo)
+        if (responseData.success) {
+          setResult(responseData.message || 'Download iniciado com sucesso!');
+          
+          setDownloadStats(prev => ({
+            ...prev,
+            totalFiles: selectedFilesUrls.length,
+            progress: 100,
+            currentFile: 'Download concluído!'
+          }));
+          
+          const completedFiles = {};
+          selectedFilesUrls.forEach(fileUrl => {
+            const filename = fileUrl.split('/').pop() || 'arquivo';
+            completedFiles[filename] = {
+              progress: 100,
+              downloaded: 0,
+              total: 0,
+              status: 'completed'
+            };
+          });
+          setDownloadProgress(completedFiles);
+          
+          setTimeout(() => {
+            setDownloading(false);
+            setShowDownloadModal(false);
+          }, 3000);
+        } else {
+          throw new Error(responseData.error || 'Erro no download');
+        }
       }
 
     } catch (err) {
@@ -555,32 +641,6 @@ function App() {
           </div>
 
           <div className="input-group">
-            <label htmlFor="directory">Diretório de destino:</label>
-            <div className="input-container">
-              <input
-                id="directory"
-                type="text"
-                placeholder="Ex: C:\downloads"
-                value={saveDirectory}
-                onChange={(e) => {
-                  setSaveDirectory(e.target.value);
-                  clearMessages();
-                }}
-                onFocus={clearMessages}
-                className={`input-field ${directoryError ? 'input-error' : ''}`}
-              />
-              {directoryError && (
-                <div className="tooltip">
-                  <div className="tooltip-arrow"></div>
-                  <div className="tooltip-content">
-                    Informe o diretório
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="input-group">
             <label htmlFor="fileType">Tipo de arquivo:</label>
             <select
               id="fileType"
@@ -618,7 +678,7 @@ function App() {
           </div>
         </div>
 
-        {error && !urlError && !directoryError && (
+        {error && !urlError && (
           <div className="alert alert-error">
             <strong>❌ Erro:</strong> {error}
           </div>
